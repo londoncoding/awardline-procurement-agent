@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.pytest_cache/
+.coverage
+*.sqlite3
+.awardline-watcher-state.json
+.awardline-watcher-state.json.tmp

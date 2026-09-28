@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "awardline-pilot"
+version = "0.1.0"
+description = "Source-backed UK procurement award history for agents"
+requires-python = ">=3.12"
+dependencies = [
+    "psycopg[binary]>=3.2,<4",
+    "fastapi>=0.141,<1",
+    "uvicorn>=0.54,<1",
+    "redis>=8,<9",
+    "httpx>=0.28,<1",
+]
+
+[project.scripts]
+awardline-watcher = "awardline.competitor_watcher:main"
+
+[project.optional-dependencies]
+test = ["pytest>=9,<10", "httpx>=0.28,<1"]
+mcp = ["mcp>=2.2,<3", "httpx>=0.28,<1"]
+
+[tool.setuptools.packages.find]
+include = ["awardline*"]
