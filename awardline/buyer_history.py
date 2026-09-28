@@ -137,3 +137,23 @@ def build_buyer_history(buyer_id: str, category: str, releases: list[dict[str, A
             "limitations": ["Only ingested Contracts Finder releases", "No inference of incumbency, legal-entity identity or future renewal"],
         },
     }
+
+
+def preview_buyer_history(pack: dict[str, Any]) -> dict[str, Any]:
+    """Expose availability and honest coverage without releasing award rows."""
+    coverage = pack["coverage"]
+    count = coverage["matched_awards"]
+    return {
+        "buyer_id": pack["query"]["buyer_id"],
+        "category": pack["query"]["category"],
+        "buyer_name": pack["buyer"]["published_name"],
+        "revision": pack["revision"],
+        "award_count": count,
+        "max_awards_per_pack": 20,
+        "coverage_status": coverage["status"],
+        "observed_from": coverage["observed_from"],
+        "observed_to": coverage["observed_to"],
+        "enrichment_available": count > 0,
+        "payment_enabled": False,
+        "price_usdc": None,
+    }

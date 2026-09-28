@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from awardline.api import create_app
-from awardline.buyer_history import build_buyer_history
+from awardline.buyer_history import build_buyer_history, preview_buyer_history
 from awardline.buyer_history import PgBuyerHistoryRepository, valid_buyer_id
 from awardline.ingest import canonical_json
 
@@ -121,6 +121,35 @@ def test_source_scoped_buyer_id_with_slash_survives_http_query():
     response = client.get("/v1/buyer-history", params={"buyer_id": source_id, "category": "7942"})
     assert response.status_code == 200
     assert response.json()["query"]["buyer_id"] == source_id
+
+
+def test_free_preview_shows_coverage_without_paid_award_details():
+    class FixtureRepository:
+        def releases_for_buyer(self, buyer_id):
+            return [release()]
+
+    client = TestClient(create_app("unused", history_repository=FixtureRepository()))
+    response = client.get("/v1/buyer-history/preview", params={"buyer_id": BUYER_ID, "category": "7220"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["buyer_id"] == BUYER_ID
+    assert body["award_count"] == 1
+    assert body["enrichment_available"] is True
+    assert body["payment_enabled"] is False
+    assert body["price_usdc"] is None
+    assert body["coverage_status"] == "observed_records_only"
+    assert "suppliers" not in str(body)
+    assert "120000" not in str(body)
+    assert "source_url" not in str(body)
+    assert client.get("/v1/buyer-history", params={"buyer_id": BUYER_ID, "category": "7220"}).status_code == 503
+
+
+def test_empty_preview_never_offers_a_charge():
+    full = build_buyer_history(BUYER_ID, "7220", [])
+    preview = preview_buyer_history(full)
+    assert preview["award_count"] == 0
+    assert preview["enrichment_available"] is False
+    assert preview["price_usdc"] is None
 
 
 def test_postgres_repository_filters_by_exact_published_buyer_id():

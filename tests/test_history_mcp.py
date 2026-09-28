@@ -1,10 +1,10 @@
-"""The new product's MCP surface exposes exactly one research action."""
+"""The new product's MCP surface exposes one paid candidate and its free preview."""
 
 import unittest
 
 
 class HistoryMcpTests(unittest.IsolatedAsyncioTestCase):
-    async def test_single_tool_calls_buyer_history_http_action(self):
+    async def test_buyer_history_and_preview_call_the_same_http_actions(self):
         from mcp import Client
         from awardline.api import create_app
         from awardline.history_mcp import create_history_mcp_server
@@ -24,8 +24,12 @@ class HistoryMcpTests(unittest.IsolatedAsyncioTestCase):
         server = create_history_mcp_server(create_app("unused", history_repository=Repository(), research_demo=True))
         async with Client(server) as client:
             tools = await client.list_tools()
+            preview = await client.call_tool("awardline_buyer_history_preview", {"buyer_id": "GB-NHS:123", "category": "7220"})
             result = await client.call_tool("awardline_buyer_history", {"buyer_id": "GB-NHS:123", "category": "7220"})
-        self.assertEqual([tool.name for tool in tools.tools], ["awardline_buyer_history"])
+        self.assertEqual({tool.name for tool in tools.tools}, {"awardline_buyer_history", "awardline_buyer_history_preview"})
+        self.assertFalse(preview.is_error)
+        self.assertEqual(preview.structured_content["award_count"], 1)
+        self.assertNotIn("suppliers", str(preview.structured_content))
         self.assertFalse(result.is_error)
         self.assertEqual(result.structured_content["awards"][0]["suppliers"][0]["id"], "GB-COH-456")
 

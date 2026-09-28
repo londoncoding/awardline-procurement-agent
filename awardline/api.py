@@ -10,7 +10,7 @@ import psycopg
 
 from .ledger import AccessError, PilotLedger
 from .cache import RedisPayloadCache
-from .buyer_history import PgBuyerHistoryRepository, build_buyer_history, valid_buyer_id
+from .buyer_history import PgBuyerHistoryRepository, build_buyer_history, preview_buyer_history, valid_buyer_id
 
 
 class UnlockRequest(BaseModel):
@@ -48,6 +48,18 @@ def create_app(dsn: str, cache=None, redis_url: str | None = None, *, history_re
             raise HTTPException(status_code=exc.status_code, detail=exc.code) from exc
         except (psycopg.OperationalError, psycopg.InterfaceError) as exc:
             raise HTTPException(status_code=503, detail="database_unavailable") from exc
+
+    @app.get("/v1/buyer-history/preview")
+    def buyer_history_preview(
+        response: Response,
+        buyer_id: str = Query(min_length=3, max_length=300),
+        category: str = Query(pattern=r"^\d{4}$"),
+    ):
+        if not valid_buyer_id(buyer_id):
+            raise HTTPException(status_code=400, detail="invalid_buyer_id")
+        result = call(lambda: build_buyer_history(buyer_id, category, history_repository.releases_for_buyer(buyer_id)))
+        response.headers["Cache-Control"] = "no-store"
+        return preview_buyer_history(result)
 
     @app.get("/v1/buyer-history")
     def buyer_history(

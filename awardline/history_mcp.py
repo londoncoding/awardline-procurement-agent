@@ -1,4 +1,4 @@
-"""Single-action MCP adapter for buyer history, sharing the HTTP handler.
+"""Buyer-history MCP adapter with a free preview and one research action.
 
 The Streamable HTTP option binds to localhost only. There is no remotely
 deployed or billable endpoint in this prototype.
@@ -23,13 +23,7 @@ def create_history_mcp_server(api_app) -> MCPServer:
         instructions="Research one exact published buyer ID and four-digit CPV category. Awards are observed source evidence; do not infer incumbency, legal-entity identity or future renewal. The local demo does not charge.",
     )
 
-    @server.tool(
-        name="awardline_buyer_history",
-        description="Get bounded Contracts Finder award history for one exact buyer ID and four-digit CPV category, with supplier IDs, values, dates, and source links.",
-        structured_output=True,
-    )
-    async def buyer_history(buyer_id: str, category: str, limit: int = 20) -> dict[str, Any]:
-        path = "/v1/buyer-history?" + urlencode({"buyer_id": buyer_id, "category": category, "limit": limit})
+    async def request(path: str) -> dict[str, Any]:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=api_app), base_url="http://awardline.local") as client:
             try:
                 response = await client.get(path)
@@ -38,6 +32,22 @@ def create_history_mcp_server(api_app) -> MCPServer:
         if response.status_code >= 400:
             return {"error": response.json().get("detail", "api_error"), "http_status": response.status_code, "retryable": response.status_code >= 500}
         return response.json()
+
+    @server.tool(
+        name="awardline_buyer_history_preview",
+        description="Free buyer/category availability, count and coverage; no supplier IDs, values or trial/payment spend.",
+        structured_output=True,
+    )
+    async def buyer_history_preview(buyer_id: str, category: str) -> dict[str, Any]:
+        return await request("/v1/buyer-history/preview?" + urlencode({"buyer_id": buyer_id, "category": category}))
+
+    @server.tool(
+        name="awardline_buyer_history",
+        description="Get bounded Contracts Finder award history for one exact buyer ID and four-digit CPV category, with supplier IDs, values, dates, and source links.",
+        structured_output=True,
+    )
+    async def buyer_history(buyer_id: str, category: str, limit: int = 20) -> dict[str, Any]:
+        return await request("/v1/buyer-history?" + urlencode({"buyer_id": buyer_id, "category": category, "limit": limit}))
 
     return server
 
